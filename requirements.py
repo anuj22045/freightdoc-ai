@@ -7,3 +7,4 @@ langchain-community
 faiss-cpu
 langchain-groq
 pydantic
+streamlit
