@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
+
 
 from config import GROQ_MODEL
 
@@ -99,18 +99,12 @@ class ShipmentInformation(BaseModel):
     insurance_policy_number: Optional[str] = None
 
 
-# Initialize Groq
+# Initialize Groq with structured output bound to ShipmentInformation schema
 llm = ChatGroq(
     model=GROQ_MODEL,
     temperature=0,
     max_retries=2
-)
-
-
-# Configure structured output parser
-parser = PydanticOutputParser(
-    pydantic_object=ShipmentInformation
-)
+).with_structured_output(ShipmentInformation)
 
 
 # Improved extraction prompt
@@ -128,36 +122,36 @@ prompt = ChatPromptTemplate.from_messages([
         FIELD IDENTIFICATION RULES:
 
         1. shipment_id and shipper_reference:
-           Extract the value beside Shipper's Reference.
+            Extract the value beside Shipper's Reference.
 
         2. bill_of_lading_number:
-           Extract the value beside Bill of Lading Number.
+                Extract the value beside Bill of Lading Number.
 
         3. carrier_reference:
-           Extract the value beside Carrier's Reference.
+            Extract the value beside Carrier's Reference.
 
         4. unique_consignment_reference:
-           Extract the value beside Unique Consignment Ref.
+            Extract the value beside Unique Consignment Ref.
 
         5. shipment_date:
-           Prefer the date beside Shipped on Board.
-           Do not confuse it with the document issue date.
+            Prefer the date beside Shipped on Board.
+            Do not confuse it with the document issue date.
 
         6. port_of_loading:
-           Extract the value beside Port of Loading.
+            Extract the value beside Port of Loading.
 
         7. port_of_discharge:
-           Extract the value beside Port of Discharge.
+            Extract the value beside Port of Discharge.
 
         8. cargo_items:
-           Read the Cargo Details table row by row.
-           Extract every product separately.
-           Identify the product description, package
-           quantity, net weight and gross weight.
+            Read the Cargo Details table row by row.
+            Extract every product separately.
+            Identify the product description, package
+            quantity, net weight and gross weight.
 
         9. total_net_weight and total_gross_weight:
-           Extract the values from the Total row.
-           Do not calculate these values yourself.
+            Extract the values from the Total row.
+            Do not calculate these values yourself.
 
         STRICT RULES:
 
@@ -175,8 +169,6 @@ prompt = ChatPromptTemplate.from_messages([
         IMPORTANT:
         Check the entire document before deciding
         that a field is unavailable.
-
-        {format_instructions}
         """
     ),
 
@@ -197,7 +189,7 @@ prompt = ChatPromptTemplate.from_messages([
 
 
 # Create extraction chain
-extraction_chain = prompt | llm | parser
+extraction_chain = prompt | llm
 
 
 def extract_shipment_information(document_text):
@@ -209,10 +201,7 @@ def extract_shipment_information(document_text):
 
         result = extraction_chain.invoke({
 
-            "document_text": document_text,
-
-            "format_instructions":
-                parser.get_format_instructions()
+            "document_text": document_text
 
         })
 
