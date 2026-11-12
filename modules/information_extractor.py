@@ -1,11 +1,11 @@
 
+import json
 from typing import Optional, List
 
 from pydantic import BaseModel, Field, ValidationError
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-
 
 from config import GROQ_MODEL
 
@@ -99,15 +99,21 @@ class ShipmentInformation(BaseModel):
     insurance_policy_number: Optional[str] = None
 
 
-# Initialize Groq with structured output bound to ShipmentInformation schema
+# Initialize Groq using json_mode structured output.
+# This avoids tool-calling / function-calling entirely, which is incompatible
+# with the openai/gpt-oss-20b reasoning model on Groq (causes tool_use_failed 400).
+# json_mode uses response_format={"type":"json_object"} — the LLM returns plain
+# JSON text that is parsed and validated against the ShipmentInformation schema.
 llm = ChatGroq(
     model=GROQ_MODEL,
     temperature=0,
     max_retries=2
-).with_structured_output(ShipmentInformation)
+).with_structured_output(ShipmentInformation, method="json_mode")
 
 
-# Improved extraction prompt
+# Extraction prompt — includes explicit JSON instruction required for json_mode.
+# The prompt tells the model exactly what JSON structure to return so that
+# LangChain can validate the response against the ShipmentInformation schema.
 prompt = ChatPromptTemplate.from_messages([
 
     (
@@ -122,42 +128,42 @@ prompt = ChatPromptTemplate.from_messages([
         FIELD IDENTIFICATION RULES:
 
         1. shipment_id and shipper_reference:
-            Extract the value beside Shipper's Reference.
+           Extract the value beside Shipper's Reference.
 
         2. bill_of_lading_number:
-                Extract the value beside Bill of Lading Number.
+           Extract the value beside Bill of Lading Number.
 
         3. carrier_reference:
-            Extract the value beside Carrier's Reference.
+           Extract the value beside Carrier's Reference.
 
         4. unique_consignment_reference:
-            Extract the value beside Unique Consignment Ref.
+           Extract the value beside Unique Consignment Ref.
 
         5. shipment_date:
-            Prefer the date beside Shipped on Board.
-            Do not confuse it with the document issue date.
+           Prefer the date beside Shipped on Board.
+           Do not confuse it with the document issue date.
 
         6. port_of_loading:
-            Extract the value beside Port of Loading.
+           Extract the value beside Port of Loading.
 
         7. port_of_discharge:
-            Extract the value beside Port of Discharge.
+           Extract the value beside Port of Discharge.
 
         8. cargo_items:
-            Read the Cargo Details table row by row.
-            Extract every product separately.
-            Identify the product description, package
-            quantity, net weight and gross weight.
+           Read the Cargo Details table row by row.
+           Extract every product separately.
+           Identify the product description, package
+           quantity, net weight and gross weight.
 
         9. total_net_weight and total_gross_weight:
-            Extract the values from the Total row.
-            Do not calculate these values yourself.
+           Extract the values from the Total row.
+           Do not calculate these values yourself.
 
         STRICT RULES:
 
         - Extract information only from the document.
         - Never invent missing values.
-        - Return null for unavailable information.
+        - Use null for unavailable fields (not empty string).
         - Never return an empty string for a missing value.
         - Preserve original names, numbers and units.
         - Do not skip cargo rows.
@@ -169,6 +175,40 @@ prompt = ChatPromptTemplate.from_messages([
         IMPORTANT:
         Check the entire document before deciding
         that a field is unavailable.
+
+        You MUST respond with valid JSON only.
+        Do not include any explanation or markdown.
+        Return a single JSON object matching this structure:
+
+        {{
+          "document_type": string or null,
+          "shipment_id": string or null,
+          "shipper_reference": string or null,
+          "bill_of_lading_number": string or null,
+          "carrier_reference": string or null,
+          "unique_consignment_reference": string or null,
+          "invoice_number": string or null,
+          "shipper": string or null,
+          "consignee": string or null,
+          "shipment_date": string or null,
+          "port_of_loading": string or null,
+          "port_of_discharge": string or null,
+          "product_description": string or null,
+          "cargo_items": [
+            {{
+              "product_description": string or null,
+              "quantity": string or null,
+              "net_weight": string or null,
+              "gross_weight": string or null
+            }}
+          ],
+          "total_quantity": string or null,
+          "total_net_weight": string or null,
+          "total_gross_weight": string or null,
+          "total_amount": string or null,
+          "currency": string or null,
+          "insurance_policy_number": string or null
+        }}
         """
     ),
 
@@ -193,6 +233,17 @@ extraction_chain = prompt | llm
 
 
 def extract_shipment_information(document_text):
+    """
+    Extract structured shipment information from logistics document text.
+
+    Uses Groq LLM in json_mode (response_format: json_object) to avoid
+    tool-calling, which is unreliable with the openai/gpt-oss-20b reasoning
+    model and causes intermittent 400 tool_use_failed errors.
+
+    Returns a dict matching the ShipmentInformation schema.
+    Raises ValueError for empty input or Pydantic validation failure.
+    Raises RuntimeError for API errors.
+    """
 
     if not document_text or not document_text.strip():
         raise ValueError("Document text cannot be empty.")
@@ -200,17 +251,14 @@ def extract_shipment_information(document_text):
     try:
 
         result = extraction_chain.invoke({
-
             "document_text": document_text
-
         })
 
-        # Convert Pydantic object into dictionary
+        # result is a ShipmentInformation Pydantic object
         data = result.model_dump()
 
-        # Convert empty strings into None
+        # Convert empty strings to None
         for key, value in data.items():
-
             if isinstance(value, str) and not value.strip():
                 data[key] = None
 
