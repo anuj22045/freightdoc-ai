@@ -128,36 +128,36 @@ prompt = ChatPromptTemplate.from_messages([
         FIELD IDENTIFICATION RULES:
 
         1. shipment_id and shipper_reference:
-           Extract the value beside Shipper's Reference.
+            Extract the value beside Shipper's Reference.
 
         2. bill_of_lading_number:
-           Extract the value beside Bill of Lading Number.
+            Extract the value beside Bill of Lading Number.
 
         3. carrier_reference:
-           Extract the value beside Carrier's Reference.
+            Extract the value beside Carrier's Reference.
 
         4. unique_consignment_reference:
-           Extract the value beside Unique Consignment Ref.
+            Extract the value beside Unique Consignment Ref.
 
         5. shipment_date:
-           Prefer the date beside Shipped on Board.
-           Do not confuse it with the document issue date.
+            Prefer the date beside Shipped on Board.
+            Do not confuse it with the document issue date.
 
         6. port_of_loading:
-           Extract the value beside Port of Loading.
+            Extract the value beside Port of Loading.
 
         7. port_of_discharge:
-           Extract the value beside Port of Discharge.
+            Extract the value beside Port of Discharge.
 
         8. cargo_items:
-           Read the Cargo Details table row by row.
-           Extract every product separately.
-           Identify the product description, package
-           quantity, net weight and gross weight.
+            Read the Cargo Details table row by row.
+            Extract every product separately.
+            Identify the product description, package
+            quantity, net weight and gross weight.
 
         9. total_net_weight and total_gross_weight:
-           Extract the values from the Total row.
-           Do not calculate these values yourself.
+            Extract the values from the Total row.
+            Do not calculate these values yourself.
 
         STRICT RULES:
 
@@ -181,33 +181,33 @@ prompt = ChatPromptTemplate.from_messages([
         Return a single JSON object matching this structure:
 
         {{
-          "document_type": string or null,
-          "shipment_id": string or null,
-          "shipper_reference": string or null,
-          "bill_of_lading_number": string or null,
-          "carrier_reference": string or null,
-          "unique_consignment_reference": string or null,
-          "invoice_number": string or null,
-          "shipper": string or null,
-          "consignee": string or null,
-          "shipment_date": string or null,
-          "port_of_loading": string or null,
-          "port_of_discharge": string or null,
-          "product_description": string or null,
-          "cargo_items": [
+            "document_type": string or null,
+            "shipment_id": string or null,
+            "shipper_reference": string or null,
+            "bill_of_lading_number": string or null,
+            "carrier_reference": string or null,
+            "unique_consignment_reference": string or null,
+            "invoice_number": string or null,
+            "shipper": string or null,
+            "consignee": string or null,
+            "shipment_date": string or null,
+            "port_of_loading": string or null,
+            "port_of_discharge": string or null,
+            "product_description": string or null,
+            "cargo_items": [
             {{
-              "product_description": string or null,
-              "quantity": string or null,
-              "net_weight": string or null,
-              "gross_weight": string or null
+                "product_description": string or null,
+                "quantity": string or null,
+                "net_weight": string or null,
+                "gross_weight": string or null
             }}
           ],
-          "total_quantity": string or null,
-          "total_net_weight": string or null,
-          "total_gross_weight": string or null,
-          "total_amount": string or null,
-          "currency": string or null,
-          "insurance_policy_number": string or null
+            "total_quantity": string or null,
+            "total_net_weight": string or null,
+            "total_gross_weight": string or null,
+            "total_amount": string or null,
+            "currency": string or null,
+            "insurance_policy_number": string or null
         }}
         """
     ),
